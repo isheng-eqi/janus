@@ -11,7 +11,7 @@
 model:
   provider: "deepseek"
   model: "deepseek-v4-pro"
-  api_key: "REDACTED"   # resolved from environment variable
+  api_key: "${DEEPSEEK_API_KEY}"   # read from .env / environment
 
 # ---------------------------------------------------------------------------
 # gatekeeper: strategic decision layer. Formulates Directives for the Planner.
