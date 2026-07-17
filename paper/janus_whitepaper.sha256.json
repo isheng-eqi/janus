@@ -1,0 +1,9 @@
+{
+  "file": "janus_whitepaper.pdf",
+  "sha256": "e7b141a8d7ac8624057d3f97dad95f43fb28c6424be8ff86dff127c866174e0f",
+  "timestamp_utc": "2026-07-17T04:48:41Z",
+  "timestamp_local": "2026-07-17 12:48:41",
+  "size_bytes": 259290,
+  "github_repo": "https://github.com/isheng-eqi/janus",
+  "note": "Hash computed prior to arXiv submission for priority establishment"
+}
