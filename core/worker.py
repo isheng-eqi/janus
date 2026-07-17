@@ -94,6 +94,9 @@ class ToolRegistry:
     def __init__(self) -> None:
         self._tools: dict[str, ToolDef] = {}
 
+    def __len__(self) -> int:
+        return len(self._tools)
+
     # -- registration --------------------------------------------------------
 
     def register(self, tool: ToolDef) -> None:
