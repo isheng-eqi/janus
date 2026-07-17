@@ -374,11 +374,17 @@ Output ONLY valid JSON."""
                 break
 
         # ── 3.5 交付前校验：产出是否符合用户原始需求 ────────────────
-        validation = self._validate_delivery(goal, report)
-        if not validation["valid"]:
+        # Bounded loop: if validation keeps failing, don't loop forever.
+        # Max 3 delivery-validation recovery attempts, then give up and
+        # deliver whatever we have with a caveat.
+        _MAX_VALIDATION_RETRIES = 3
+        for _val_attempt in range(_MAX_VALIDATION_RETRIES):
+            validation = self._validate_delivery(goal, report)
+            if validation["valid"]:
+                break
             logger.info(
-                "Gatekeeper delivery validation failed: %s — triggering extra recovery.",
-                validation["reason"],
+                "Gatekeeper delivery validation failed (attempt %d/%d): %s",
+                _val_attempt + 1, _MAX_VALIDATION_RETRIES, validation["reason"],
             )
             # 注入偏差原因，触发一次额外恢复循环
             recovery_goal = f"{goal}\n\n[上次偏差：{validation['reason']}]"
@@ -386,6 +392,17 @@ Output ONLY valid JSON."""
             recovery_report = self._planner.execute(recovery_directive)
             report = self._merge_reports(
                 report, recovery_report, recovery_attempts=recovery_attempts + 1,
+            )
+        else:
+            # All validation retries exhausted — deliver with caveat
+            logger.warning(
+                "Gatekeeper delivery validation failed after %d attempts — "
+                "delivering partial result with caveat.",
+                _MAX_VALIDATION_RETRIES,
+            )
+            report.failed_details.append(
+                f"[交付校验未通过（{_MAX_VALIDATION_RETRIES}次尝试）] "
+                f"产出可能不完全符合用户原始需求，请人工确认。"
             )
 
         # ── 4. Format for user ──────────────────────────────────────────
@@ -768,9 +785,26 @@ Output ONLY valid JSON."""
         Returns:
             A merged ExecutionReport with combined results.
         """
-        # Keep successful tasks from old report
-        old_success_details = [d for d in old.details if "✓" in d or "完成" in d or "通过" in d]
-        old_fail_details = [d for d in old.details if "✗" in d or "失败" in d or "未通过" in d or "未完成" in d]
+        # Use ExecutionReport's structured fields instead of text parsing.
+        # (Text matching broke after Taiji aesthetic refactor — ANSI color
+        # codes wrap the Chinese labels, making "✓"/"完成" matching useless.)
+        #
+        # old.details contains all task summaries (mix of pass + fail).
+        # old.failed_details contains only failures — use it to identify
+        # which detail lines are failures when old has both pass and fail.
+        old_failure_set: set[str] = set(old.failed_details) if old.failed_details else set()
+
+        old_success_details: list[str] = []
+        old_fail_details: list[str] = []
+        if old_failure_set:
+            for d in old.details:
+                if d in old_failure_set:
+                    old_fail_details.append(d)
+                else:
+                    old_success_details.append(d)
+        else:
+            # No failures at all — everything is success
+            old_success_details = list(old.details)
 
         # Build merged details: old successes first, then new results
         merged_details: list[str] = []
