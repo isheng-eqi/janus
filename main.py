@@ -260,7 +260,7 @@ def main() -> None:
     _WELCOME = (
         f"\n{_nongmo('Janus')}\n"
         f"\n"
-        f"{_danmo(f'{gatekeeper_model}  ·  {len(registry)} 工具')}\n"
+        f"{_danmo(f'{gatekeeper_model}  |  {len(registry)} 工具')}\n"
     )
     _HELP_TEXT = (
         f"\n{_nongmo('Janus')}\n"

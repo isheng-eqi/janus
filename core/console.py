@@ -238,7 +238,7 @@ class Console:
         # 阴——与前文呼吸隔离
         print()
         # 阳——青花标题
-        print(_qing(f"分析完成 · {n_tasks} 个子任务"))
+        print(_qing(f"分析完成 | {n_tasks} 个子任务"))
         # 阴——标题与列表之间留白
         print()
         print(tasks_summary)
