@@ -37,6 +37,11 @@ import sys
 import unicodedata
 from typing import Optional
 
+# Fix ANSI escape code rendering on Windows (cmd, PowerShell, etc.)
+# Git Bash usually handles ANSI natively, but this ensures it works everywhere.
+import colorama
+colorama.just_fix_windows_console()
+
 # ---------------------------------------------------------------------------
 # Colour support detection
 # ---------------------------------------------------------------------------
