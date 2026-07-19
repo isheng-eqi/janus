@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 1200px;
+    height: 510px;
+    overflow: hidden;
+    background: #000;
+    font-family: 'Courier New', 'Consolas', 'Monaco', 'Liberation Mono', monospace;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  /* Subtle radial glow from center */
+  .glow {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 400px; height: 400px;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(ellipse at center,
+      rgba(255,255,255,0.06) 0%,
+      rgba(255,255,255,0.02) 30%,
+      transparent 60%
+    );
+    pointer-events: none;
+  }
+
+  /* Vertical divider line — subtle */
+  .divider {
+    position: absolute;
+    top: 120px;
+    bottom: 120px;
+    left: 50%;
+    width: 1px;
+    background: linear-gradient(
+      to bottom,
+      transparent,
+      rgba(255,255,255,0.15) 20%,
+      rgba(255,255,255,0.15) 80%,
+      transparent
+    );
+    pointer-events: none;
+  }
+
+  .container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* JANUS title with split styling */
+  .title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0;
+    line-height: 1;
+  }
+
+  .title-left {
+    font-size: 96px;
+    font-weight: 700;
+    letter-spacing: 12px;
+    color: #ffffff;
+    text-shadow: 0 0 40px rgba(255,255,255,0.12);
+  }
+
+  .title-right {
+    font-size: 96px;
+    font-weight: 700;
+    letter-spacing: 12px;
+    color: #ffffff;
+    opacity: 0.40;
+    text-shadow: none;
+  }
+
+  /* The dividing gap between JAN and US */
+  .title-gap {
+    width: 6px;
+  }
+
+  /* Subtitle */
+  .subtitle {
+    margin-top: 8px;
+    font-size: 18px;
+    font-weight: 400;
+    letter-spacing: 6px;
+    color: rgba(255,255,255,0.45);
+    text-transform: uppercase;
+  }
+
+  /* Bottom tagline */
+  .tagline {
+    position: absolute;
+    bottom: 52px;
+    font-size: 13px;
+    letter-spacing: 6px;
+    color: rgba(255,255,255,0.22);
+    font-family: 'Courier New', 'Consolas', 'Monaco', 'Liberation Mono', monospace;
+  }
+
+  /* Mirror shape — two triangles forming a diamond/hourglass */
+  .mirror-shape {
+    position: absolute;
+    top: 55%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    opacity: 0.18;
+    pointer-events: none;
+  }
+
+  .triangle-up {
+    width: 0;
+    height: 0;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    border-bottom: 20px solid rgba(255,255,255,0.7);
+  }
+
+  .triangle-down {
+    width: 0;
+    height: 0;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    border-top: 20px solid rgba(255,255,255,0.7);
+  }
+
+  /* Left/right accent bars */
+  .accent-left {
+    position: absolute;
+    top: 50%;
+    left: 80px;
+    width: 80px;
+    height: 1px;
+    background: linear-gradient(to left,
+      rgba(255,255,255,0.18),
+      rgba(255,255,255,0.05)
+    );
+    transform: translateY(-50%);
+  }
+
+  .accent-right {
+    position: absolute;
+    top: 50%;
+    right: 80px;
+    width: 80px;
+    height: 1px;
+    background: linear-gradient(to right,
+      rgba(255,255,255,0.18),
+      rgba(255,255,255,0.05)
+    );
+    transform: translateY(-50%);
+  }
+
+  /* Corner diamonds */
+  .corner {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border: 1px solid rgba(255,255,255,0.12);
+    transform: rotate(45deg);
+  }
+  .corner-tl { top: 36px; left: 36px; }
+  .corner-tr { top: 36px; right: 36px; }
+  .corner-bl { bottom: 36px; left: 36px; }
+  .corner-br { bottom: 36px; right: 36px; }
+</style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="divider"></div>
+  <div class="accent-left"></div>
+  <div class="accent-right"></div>
+  <div class="corner corner-tl"></div>
+  <div class="corner corner-tr"></div>
+  <div class="corner corner-bl"></div>
+  <div class="corner corner-br"></div>
+
+  <div class="container">
+    <div class="title-row">
+      <span class="title-left">JAN</span>
+      <span class="title-gap"></span>
+      <span class="title-right">US</span>
+    </div>
+    <div class="subtitle">The Two-Faced Agent Architecture</div>
+  </div>
+
+  <div class="mirror-shape">
+    <div class="triangle-up"></div>
+    <div class="triangle-down"></div>
+  </div>
+
+  <div class="tagline">past &loz; present &loz; future</div>
+</body>
+</html>
