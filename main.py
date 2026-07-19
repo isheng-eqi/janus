@@ -279,7 +279,6 @@ def main() -> None:
         ])
     _WELCOME = (
         f'{_JANUS_LOGO}\n'
-        f'{_danmo(f"{gatekeeper_model}  |  {len(registry)} 工具")}\n'
     )
     _HELP_TEXT = (
         f'{_JANUS_LOGO}\n'
@@ -299,7 +298,7 @@ def main() -> None:
 
     while True:
         try:
-            user_input = input(f"\n{_jin('❯')} ")
+            user_input = input(f"\n{_danmo(f'{gatekeeper_model}  |  {len(registry)} 工具')}\n{_jin('❯')} ")
         except (EOFError, KeyboardInterrupt):
             print(f"\n\n{_danmo('再见')}")
             break
