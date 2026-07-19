@@ -132,6 +132,8 @@ Gatekeeper → Planner → Workers → Reviewer → Report
 
 **Self-Healing Recovery Loop** — When tasks fail, the Gatekeeper doesn't just retry. It diagnoses WHY (LLM analysis of failure patterns), reformulates strategy (different decomposition, different approach), and re-executes. Two levels: Planner retries fix execution; Gatekeeper recovery fixes direction.
 
+**Self-Evolution** — Workers automatically record execution experience; the Planner references historical patterns when decomposing tasks, making the system smarter with every run.
+
 **Intent Validation** — Before delivering results to the user, one final check: "Is this what the user actually asked for?" A lightweight LLM call that catches the most expensive kind of bug — delivering the wrong thing perfectly.
 
 **Context Discipline** — Every role sees only what it needs. The Gatekeeper never sees Worker tool-call logs. The Reviewer never sees strategic intent that would bias its audit. Inherited from management's "span of control" — humans can't process everything, and neither can LLM context windows.
