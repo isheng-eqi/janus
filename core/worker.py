@@ -1124,18 +1124,53 @@ def _real_terminal(command: str) -> str:
 
 
 def _real_web_search(query: str) -> str:
-    """Placeholder — web search requires an external API to be fully implemented.
+    """Search the web using DuckDuckGo (free, no API key required).
 
-    TODO: Replace with a real web search implementation:
-      - Option A: pip install duckduckgo-search (free, no API key needed)
-      - Option B: Use Tavily / SerpAPI / Brave Search (requires API key)
-      - Option C: Use SearXNG as a self-hosted backend
-    See: https://hermes-agent.nousresearch.com/docs for tool integration guide.
+    Uses the ``ddgs`` package which wraps DuckDuckGo's HTML search.
+    Returns a JSON string with search result titles, URLs, and descriptions.
     """
-    return (
-        "Web search not yet implemented. "
-        "Consider using: pip install duckduckgo-search"
-    )
+    import concurrent.futures
+    import json
+    import logging
+    logger = logging.getLogger(__name__)
+
+    def _do_search():
+        from ddgs import DDGS
+        results = []
+        with DDGS(timeout=10) as client:
+            for i, hit in enumerate(client.text(query, max_results=5)):
+                results.append({
+                    "title": str(hit.get("title", "")),
+                    "url": str(hit.get("href", "") or hit.get("url", "")),
+                    "description": str(hit.get("body", "")),
+                    "position": i + 1,
+                })
+        return results
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(_do_search)
+            results = future.result(timeout=30)
+    except ImportError:
+        return json.dumps({
+            "error": "ddgs package not installed. Run: pip install ddgs",
+            "success": False
+        })
+    except concurrent.futures.TimeoutError:
+        return json.dumps({
+            "error": "Search timed out after 30s",
+            "success": False
+        })
+    except Exception as exc:
+        return json.dumps({
+            "error": f"Search failed: {exc}",
+            "success": False
+        })
+
+    return json.dumps({
+        "success": True,
+        "data": {"web": results}
+    }, ensure_ascii=False)
 
 
 def _real_web_extract(urls: str) -> str:
@@ -1412,20 +1447,55 @@ def _real_execute_code(code: str) -> str:
 
 
 def _real_browser_navigate(url: str) -> str:
-    """Placeholder — browser navigation requires Playwright/Selenium.
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("Browser navigate to: %s", url)
 
-    TODO: Replace with a real browser automation implementation:
-      - Option A: pip install playwright && playwright install chromium
-      - Option B: Use Selenium WebDriver (requires separate driver install)
-      - Option C: Integrate with Hermes Agent's browser_* tools for a
-        managed browser session
-    See: https://hermes-agent.nousresearch.com/docs for tool integration guide.
-    """
-    return (
-        "Browser navigation requires Playwright. "
-        "Install with: pip install playwright && playwright install. "
-        "Then set browser_mode=true in config."
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return json.dumps({
+            "error": "Playwright not installed. Run: pip install playwright && playwright install chromium",
+            "success": False
+        })
+
+    # Use Hermes's bundled Chromium (no separate download needed).
+    # Falls back to Playwright's own bundled Chromium if the Hermes path is missing.
+    hermes_chrome = os.path.join(
+        os.path.expanduser("~"),
+        "AppData", "Local", "hermes", "chrome", "chrome-win64", "chrome.exe"
     )
+    launch_kw: dict[str, Any] = {"headless": True}
+    if os.path.isfile(hermes_chrome):
+        launch_kw["executable_path"] = hermes_chrome
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(**launch_kw)
+            page = browser.new_page()
+            page.goto(url, timeout=30000, wait_until="domcontentloaded")
+            page.wait_for_timeout(2000)
+            content = page.inner_text("body")
+            title = page.title()
+            browser.close()
+
+        if len(content) > 5000:
+            content = content[:5000] + "\n...[truncated to 5000 chars]"
+
+        logger.info("Browser navigate success: %s (%d chars)", title, len(content))
+        return json.dumps({
+            "success": True,
+            "url": url,
+            "title": title,
+            "content": content,
+        }, ensure_ascii=False)
+
+    except Exception as exc:
+        logger.error("Browser navigation failed: %s", exc)
+        return json.dumps({
+            "error": f"Browser navigation failed: {exc}",
+            "success": False
+        })
 
 
 def create_default_registry() -> ToolRegistry:
@@ -1518,9 +1588,8 @@ def create_default_registry() -> ToolRegistry:
     registry.register(
         ToolDef(
             name="web_search",
-            description="Search the web for information. "
-                        "Returns search results with URLs and descriptions. "
-                        "⚠️ Currently a placeholder — needs external API integration.",
+            description="Search the web using DuckDuckGo (free, no API key). "
+                        "Returns search results with titles, URLs, and descriptions.",
             parameters={"query": "The search query string."},
             func=_real_web_search,
         )
@@ -1528,8 +1597,8 @@ def create_default_registry() -> ToolRegistry:
     registry.register(
         ToolDef(
             name="browser_navigate",
-            description="Navigate to a URL in a browser and retrieve page content. "
-                        "⚠️ Currently a placeholder — needs Playwright or Selenium installation.",
+            description="Navigate to a URL using headless Chromium and return the page text content. "
+                        "Requires: playwright install chromium.",
             parameters={"url": "The URL to navigate to."},
             func=_real_browser_navigate,
         )
