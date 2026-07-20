@@ -259,6 +259,11 @@ class Directive:
     """多轮对话历史上下文。由 Gatekeeper 从 Session 传入，供 Planner 在分解任务时
     参考，以理解用户的连续意图（例如 '继续上一个任务'）。"""
 
+    recovery_context: str = ""
+    """恢复诊断上下文。由 Gatekeeper 在恢复循环第 2 次尝试时传入，
+    供 Planner 重新读 user_goal 并重新分解。非空时 Planner 会在分解提示词中
+    注入此诊断文本，以改进分解策略。"""
+
 
 
 @dataclass

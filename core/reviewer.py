@@ -272,6 +272,20 @@ criterion is SATISFIED. Do not invent hypothetical failure modes.
 perfection. A deliverable that meets all stated criteria is APPROVED \
 regardless of whether YOU would have done it differently.
 
+## Two-Phase Review: Substance vs Process
+
+区分两类问题，严格按类型分配严重级别和裁决：
+
+**1. 实质问题 (Substantive Issues)** — 产出文件不存在、内容错误、不满足验收标准的硬性要求。
+这类问题标记为 critical 或 major，触发 REJECTED 或 MAJOR_REVISIONS。
+如果产出物实质正确，即使 Worker 的执行过程不够完美，也不应因为"过程不完美"而判定为实质问题。
+
+**2. 过程问题 (Process Issues)** — 日志不完整、输出格式不优雅、缺少 console 输出、中间步骤未记录等。
+这类问题最多标记为 minor 或 suggestion，且触发 APPROVED_WITH_NOTES 而非 REJECTED 或 MAJOR_REVISIONS。
+过程问题是优化建议，不是阻塞理由——只要产出物本身正确，过程缺陷不应阻止通过。
+
+**关键判断原则**：产出物本身是否正确 > Worker 怎么产出它的。如果 review 日志显示 task-2 因 console 输出日志不完整被打回但实际产出已经正确——那是 misclassification。只应为实质产出缺陷打回任务。
+
 ## Acceptance Criteria Classification
 
 Criteria are marked [HARD] or [SOFT]. Unmarked criteria default to [HARD].
@@ -918,6 +932,21 @@ Output ONLY a JSON object with this schema:
                 f"Upgraded verdict from {old_verdict} -> {floor_verdict.value}"
             )
             result.verdict = floor_verdict
+
+        # Step 3.5: Suggestion-only override — if the HIGHEST severity among
+        # all issues is SUGGESTION (i.e., no critical, major, or minor),
+        # force APPROVED_WITH_NOTES regardless of what the LLM said.
+        # This prevents process-level nits (incomplete logs, formatting)
+        # from blocking a substantively correct deliverable.
+        if adjusted_issues and not (has_critical or has_major or has_minor):
+            if has_suggestion:
+                if result.verdict != ReviewVerdict.APPROVED_WITH_NOTES:
+                    old_verdict = result.verdict.value
+                    adjustments.append(
+                        f"Downgraded verdict from {old_verdict} -> "
+                        f"approved_with_notes (all issues are suggestion-level)"
+                    )
+                    result.verdict = ReviewVerdict.APPROVED_WITH_NOTES
 
         # Step 4: Append calibration note
         if adjustments:

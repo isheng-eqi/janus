@@ -277,7 +277,7 @@ class TestReviewer(unittest.TestCase):
 
         review = reviewer.review(spec, result)
         self.assertEqual(review.verdict, ReviewVerdict.REJECTED)
-        self.assertIn("RuntimeError", review.summary)
+        self.assertIn("产物真实性校验失败", review.summary)
 
     def test_review_success_approved(self):
         """Happy path: LLM returns APPROVED verdict."""
@@ -324,7 +324,7 @@ class TestReviewer(unittest.TestCase):
         )
         review = reviewer.review(spec, result)
 
-        self.assertEqual(review.verdict, ReviewVerdict.MAJOR_REVISIONS)
+        self.assertEqual(review.verdict, ReviewVerdict.REJECTED)
         self.assertEqual(len(review.issues), 3)
         self.assertTrue(review.has_critical)
         self.assertEqual(len(review.blocking_issues), 3)

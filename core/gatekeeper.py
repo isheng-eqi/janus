@@ -15,6 +15,7 @@ Role in the Janus architecture:
 from __future__ import annotations
 
 import logging
+import os
 import re
 from typing import Any, Optional, TYPE_CHECKING
 
@@ -362,10 +363,20 @@ Output ONLY valid JSON."""
             # Diagnose: why did these tasks fail?
             diagnosis = self._diagnose_failures(report, goal)
 
-            # Reformulate: create a new directive with a different strategy
-            new_directive = self._reformulate_for_recovery(
-                goal, report, diagnosis, recovery_attempts, user_goal=goal,
-            )
+            if recovery_attempts == 0:
+                # 第 1 次恢复：reformulate + 重新执行（当前行为）
+                new_directive = self._reformulate_for_recovery(
+                    goal, report, diagnosis, recovery_attempts, user_goal=goal,
+                )
+            else:
+                # 第 2+ 次恢复：退回 Planner 重新分解
+                # 创建新的 Directive，传入 recovery_context 让 Planner._plan()
+                # 在 prompt 开头注入诊断上下文，基于原始 user_goal 重新分解
+                new_directive = Directive(
+                    goal=goal,
+                    user_goal=goal,
+                    recovery_context=diagnosis,
+                )
 
             # Execute again
             new_report = self._planner.execute(new_directive)
@@ -547,6 +558,76 @@ Output ONLY valid JSON."""
 
     # -- internal: recovery methods -------------------------------------------
 
+    @staticmethod
+    def _quick_file_check(failed_tasks: list[dict[str, str]]) -> str:
+        """Check if files mentioned in failed tasks actually exist on disk.
+
+        Scans the unstructured text fields of each failed task dict
+        (acceptance_criteria, review_issues, summary) for file-like paths
+        and checks ``os.path.exists``.  Returns a diagnostic appendix for
+        injection into the LLM diagnosis prompt, or an empty string when
+        no files are found.
+
+        Args:
+            failed_tasks: List of dicts from ``ExecutionReport.failed_tasks``.
+
+        Returns:
+            A formatted text string for appending to the diagnosis prompt,
+            or ``""`` when no files could be checked.
+        """
+        # Build a set of candidate paths from the text fields
+        candidates: dict[str, str] = {}  # path → source context
+        for ft in failed_tasks:
+            source = ft.get("task_id", "?")
+            # Concatenate all text fields for path extraction
+            text = " ".join(
+                ft.get(k, "") for k in ("summary", "acceptance_criteria", "review_issues")
+                if ft.get(k)
+            )
+            # Simple heuristic: look for Windows and Unix absolute paths
+            for match in re.finditer(
+                r'(?:[A-Za-z]:[/\\][^\s"\'`]+|/[^\s"\'`]{2,})',
+                text,
+            ):
+                raw = match.group(0).rstrip(".,;:!?\"')]")
+                if raw not in candidates:
+                    candidates[raw] = source
+
+        if not candidates:
+            return ""
+
+        # Check each candidate on disk
+        findings: list[str] = []
+        found_count = 0
+        for path, source in candidates.items():
+            try:
+                expanded = os.path.expanduser(path)
+                if os.path.exists(expanded):
+                    size = os.path.getsize(expanded)
+                    if size > 0:
+                        findings.append(
+                            f"[文件检查] {path} 实际存在于磁盘 "
+                            f"({size} bytes，任务 {source})，"
+                            f"任务可能在格式层面失败而非产出层面。"
+                        )
+                        found_count += 1
+                    else:
+                        findings.append(
+                            f"[文件检查] {path} 存在但为空 (0 bytes，任务 {source})。"
+                        )
+            except (ValueError, OSError):
+                pass  # Path too strange to check
+
+        if not findings:
+            return ""
+
+        header = (
+            f"\\n## 文件实际存在性检查\\n"
+            f"在启动 LLM 诊断之前，先检查了失败任务中提到的文件是否实际存在于磁盘。"
+            f"共检查 {len(candidates)} 个候选路径，发现 {found_count} 个实际存在：\\n\\n"
+        )
+        return header + "\\n".join(f"  - {f}" for f in findings) + "\\n"
+
     def _diagnose_failures(self, report: ExecutionReport, goal: str) -> str:
         """Ask the LLM to diagnose WHY tasks failed and suggest different approaches.
 
@@ -588,8 +669,15 @@ Output ONLY valid JSON."""
             {
                 "role": "user",
                 "content": (
-                    "You are diagnosing task failures to plan a recovery strategy.\n\n"
-                    "## Known Worker Tool Limitations\n"
+                    "You are diagnosing task failures to plan a recovery strategy.\\n\\n"
+                    # ── Pre-LLM file existence check ──────────────────────────
+                    # Check if files mentioned in failed tasks actually exist on
+                    # disk BEFORE asking the LLM to diagnose — this helps the LLM
+                    # distinguish "real output failure" from "process-level format
+                    # failure" (e.g. file created but console log incomplete).
+                    f"{self._quick_file_check(report.failed_tasks)}"
+                    f"\\n"
+                    "## Known Worker Tool Limitations\\n"
                     "Consider these when diagnosing failures — they may explain "
                     "why certain acceptance criteria are impossible to satisfy:\n"
                     "- read_file: returns up to 50,000 characters per call. "

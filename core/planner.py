@@ -662,9 +662,23 @@ right granularity so each sub-task can be executed independently by a Worker."""
     def _plan(self, directive: Directive) -> list[TaskSpec]:
         """Call the LLM to break *directive* into discrete ``TaskSpec`` items.
 
+        When ``directive.recovery_context`` is non-empty, the diagnostic text
+        is injected into the prompt so the Planner can learn from prior
+        failures and re-decompose with a better strategy.
+
         Returns an empty list when the LLM returns an error, unparseable
         output, or otherwise fails.
         """
+        # Build recovery context section if present (2nd recovery attempt)
+        recovery_block = ""
+        if directive.recovery_context:
+            recovery_block = (
+                f"\\n## 恢复诊断上下文（参考此分析重新分解任务）\\n"
+                f"上一次执行失败了。以下是失败诊断：\\n"
+                f"{directive.recovery_context}\\n\\n"
+                f"请重新阅读用户目标，结合诊断结果做更合理的任务分解。"
+                f"不要机械地重复上一次的分解方案。\\n"
+            )
         # Build constraints section if present
         constraints_block = ""
         if directive.constraints:
@@ -704,6 +718,10 @@ right granularity so each sub-task can be executed independently by a Worker."""
                         )
                     )
                     +
+                    # Recovery context (2nd recovery attempt) — diagnostic
+                    # text that helps Planner re-decompose with better strategy
+                    recovery_block
+                    +
                     "Decompose the following goal into a JSON array of task "
                     "objects. Each task object must have:\n"
                     '- "task_id": string, unique identifier (e.g., "task-1", "task-2")\n'
@@ -719,6 +737,10 @@ right granularity so each sub-task can be executed independently by a Worker."""
                     "bigger picture. If not specified, derive from the parent goal.\n"
                     "\n"
                     "Rules:\n"
+                    "- **防过度分解**：如果子任务 A 的唯一消费者是子任务 B，"
+                    "且 A 的产出是一个中间文件，应将 A 和 B 合并为一个任务。"
+                    "避免产生仅用于序列化/反序列化的中间文件——那是人工开销，"
+                    "原子意图不应被拆成文件依赖链。\n"
                     "- Each task must be self-contained enough for a Worker "
                     "to execute independently\n"
                     "- Tasks should be independent when possible "
